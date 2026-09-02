@@ -14,12 +14,12 @@ import LoadChart from '@/components/LoadChart.vue'
 import PingChart from '@/components/PingChart.vue'
 import { useAppStore } from '@/stores/app'
 import { useNodesStore } from '@/stores/nodes'
-import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatUptimeWithFormat } from '@/utils/helper'
+import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDurationAdaptive } from '@/utils/helper'
 import { getDiskPercentage, getMemoryPercentage, getTrafficLimitBytes, getTrafficUsed, getTrafficUsedPercentage } from '@/utils/nodeMetricsHelper'
 import { getOSImage } from '@/utils/osImageHelper'
 import { getFlagUrl, getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
 import { getBillingCycleDays, formatFinanceAmountBySymbol } from '@/utils/financeHelper'
-import { detectCurrencySymbol, formatBillingPrice, getDaysUntilExpired, getExpireStatus, getExpireText, getRemainingValue, isFreePrice, normalizeCurrency, normalizePrice, parseTags } from '@/utils/tagHelper'
+import { detectCurrencySymbol, formatBillingPrice, getExpireStatus, getRemainingValue, isFreePrice, normalizeCurrency, normalizePrice, parseTags } from '@/utils/tagHelper'
 
 const route = useRoute()
 const router = useRouter()
@@ -112,7 +112,7 @@ const uptimeSeconds = computed(() => {
   return Math.max(0, Math.floor((Date.now() - ms) / 1000))
 })
 
-const formatUptime = (seconds: number) => formatUptimeWithFormat(seconds, 'minute')
+const formatUptime = (seconds: number) => formatDurationAdaptive(seconds, appStore.lang)
 
 function toggleFavorite(): void {
   if (node.value)
@@ -185,14 +185,14 @@ function getDetailMetricCard(key: DetailMetricCardKey): MetricCard {
         return { key, label: '剩余时间', value: lang === 'zh-CN' ? '已过期' : 'Expired', icon: 'tabler:calendar-dollar', valueClass: 'text-destructive' }
       if (expireStatus === 'long_term')
         return { key, label: '剩余时间', value: lang === 'zh-CN' ? '长期' : 'Long-term', icon: 'tabler:calendar-dollar' }
-      const days = getDaysUntilExpired(current?.expire_date)
-      if (days === null)
+      const ts = new Date(String(current?.expire_date ?? '')).getTime()
+      if (!Number.isFinite(ts))
         return { key, label: '剩余时间', value: '-', icon: 'tabler:calendar-dollar' }
+      const seconds = Math.max(0, Math.floor((ts - Date.now()) / 1000))
       return {
         key,
         label: '剩余时间',
-        value: String(days),
-        unit: lang === 'zh-CN' ? '天' : 'days',
+        value: formatDurationAdaptive(seconds, lang, 'ceil'),
         icon: 'tabler:calendar-dollar',
         valueClass: expireStatus === 'critical' ? 'text-destructive' : expireStatus === 'warning' ? 'text-orange-600 dark:text-orange-400' : '',
       }
@@ -282,10 +282,16 @@ const systemInfo = computed<InfoItem[]>(() => [
   { label: '架构', value: node.value?.arch ?? '-', icon: 'icon-park-outline:application-two' },
 ])
 
+const diskUsagePercent = computed(() => usagePercentage(node.value?.disk_used ?? 0, node.value?.disk_total ?? 0))
+const diskBarClass = computed(() => diskUsagePercent.value >= 80 ? 'bg-red-500/30' : diskUsagePercent.value >= 60 ? 'bg-amber-500/25' : 'bg-emerald-500/20')
+const diskUsageText = computed(() => node.value
+  ? `${formatBytes(node.value.disk_used ?? 0)} / ${formatBytes(node.value.disk_total ?? 0)}`
+  : '-')
+
 const storageInfo = computed<InfoItem[]>(() => [
   { label: '内存', value: formatBytes(node.value?.ram_total ?? 0), icon: 'icon-park-outline:memory' },
   { label: '内存交换', value: formatBytes(node.value?.swap_total ?? 0), icon: 'icon-park-outline:switch' },
-  { label: '硬盘', value: formatBytes(node.value?.disk_total ?? 0), icon: 'icon-park-outline:hard-disk' },
+  { label: '硬盘', value: diskUsageText.value, icon: 'icon-park-outline:hard-disk' },
 ])
 
 const trafficUsedBytes = computed(() => node.value ? getTrafficUsed(node.value) : 0)
@@ -478,13 +484,32 @@ const gpuDevices = computed(() => {
 
         <CardX title="存储信息" size="small" class="glass-surface group h-full bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <div class="gap-3 grid grid-cols-3">
-            <div v-for="item in storageInfo" :key="item.label" class="min-w-0 flex flex-col gap-1 rounded-sm bg-slate-500/5 p-2">
-              <div class="flex gap-1 items-center text-muted-foreground">
-                <Icon v-if="item.icon" :icon="item.icon" :width="14" :height="14" />
-                <span class="text-xs sm:text-sm">{{ item.label }}</span>
+            <template v-for="item in storageInfo" :key="item.label">
+              <div v-if="item.label === '硬盘'" class="relative min-w-0 overflow-hidden rounded-sm bg-slate-500/5 p-2">
+                <div
+                  class="absolute inset-y-0 left-0 rounded-sm pointer-events-none transition-[width,background-color] duration-300 ease-out"
+                  :class="diskBarClass"
+                  :style="{ width: `${diskUsagePercent}%` }"
+                />
+                <div class="relative flex flex-col gap-1">
+                  <div class="flex gap-1 items-center text-muted-foreground">
+                    <Icon :icon="item.icon" :width="14" :height="14" />
+                    <span class="text-xs sm:text-sm">{{ item.label }}</span>
+                  </div>
+                  <span class="text-xs sm:text-sm break-words">{{ item.value }}</span>
+                  <span v-if="diskUsagePercent !== null" class="text-[10px] tabular-nums text-muted-foreground">
+                    {{ diskUsagePercent.toFixed(1) }}%
+                  </span>
+                </div>
               </div>
-              <span class="text-xs sm:text-sm break-words">{{ item.value }}</span>
-            </div>
+              <div v-else class="min-w-0 flex flex-col gap-1 rounded-sm bg-slate-500/5 p-2">
+                <div class="flex gap-1 items-center text-muted-foreground">
+                  <Icon v-if="item.icon" :icon="item.icon" :width="14" :height="14" />
+                  <span class="text-xs sm:text-sm">{{ item.label }}</span>
+                </div>
+                <span class="text-xs sm:text-sm break-words">{{ item.value }}</span>
+              </div>
+            </template>
           </div>
         </CardX>
 
@@ -517,11 +542,15 @@ const gpuDevices = computed(() => {
                 <span class="text-xs sm:text-sm">网络速率</span>
               </div>
               <span class="text-xs sm:text-sm break-all flex flex-row flex-wrap items-center gap-1">
-                <Icon icon="tabler:chevron-up" width="12" height="12" />
-                {{ formatBytesPerSecond(node.net_out_speed ?? 0) }}
+                <span class="flex items-center gap-1 text-success">
+                  <Icon icon="tabler:chevron-up" width="12" height="12" />
+                  {{ formatBytesPerSecond(node.net_out_speed ?? 0) }}
+                </span>
                 <span class="px-0.5" />
-                <Icon icon="tabler:chevron-down" width="12" height="12" />
-                {{ formatBytesPerSecond(node.net_in_speed ?? 0) }}
+                <span class="flex items-center gap-1 text-blue-600">
+                  <Icon icon="tabler:chevron-down" width="12" height="12" />
+                  {{ formatBytesPerSecond(node.net_in_speed ?? 0) }}
+                </span>
               </span>
             </div>
           </div>

@@ -209,6 +209,20 @@ export function calcPercentage(used: number, total: number): number {
   return (used / total) * 100
 }
 
+/** 自适应时长：取最大适用单位；不足一天显示小时，不足一小时显示分钟，不足一分钟显示秒。
+ * `rounding` 控制单位取整：在线时长用 floor（不虚高），剩余时间用 ceil（不低估）。 */
+export function formatDurationAdaptive(seconds: number, lang: 'zh-CN' | 'en-US' = 'zh-CN', rounding: 'floor' | 'ceil' = 'floor'): string {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0))
+  const pick = (n: number): number => (rounding === 'ceil' ? Math.ceil(n) : Math.floor(n))
+  if (s < 60)
+    return lang === 'zh-CN' ? `${pick(s / 1)} 秒` : `${pick(s / 1)} sec`
+  if (s < 3600)
+    return lang === 'zh-CN' ? `${pick(s / 60)} 分钟` : `${pick(s / 60)} min`
+  if (s < 86400)
+    return lang === 'zh-CN' ? `${pick(s / 3600)} 小时` : `${pick(s / 3600)} hr`
+  return lang === 'zh-CN' ? `${pick(s / 86400)} 天` : `${pick(s / 86400)} days`
+}
+
 /** 状态阈值配置 */
 const STATUS_THRESHOLDS = {
   success: 60,

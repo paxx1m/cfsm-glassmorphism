@@ -8,7 +8,7 @@ import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
 import { useNodePingDisplay } from '@/composables/useNodePingDisplay'
 import { useAppStore } from '@/stores/app'
-import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, getStatus, getUptimeDays } from '@/utils/helper'
+import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatDurationAdaptive, getStatus } from '@/utils/helper'
 import { getDiskPercentage, getMemoryPercentage, getTrafficLimitBytes, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
 import { getFlagUrl, getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
@@ -104,8 +104,8 @@ const nodeMessageTooltip = computed(() => {
 })
 
 const uptimeDaysText = computed(() => {
-  const days = getUptimeDays(props.node.uptime)
-  return appStore.lang === 'zh-CN' ? `在线 ${days} 天` : `${days} days online`
+  const text = formatDurationAdaptive(props.node.uptime, appStore.lang)
+  return appStore.lang === 'zh-CN' ? `在线 ${text}` : `${text} online`
 })
 
 // 是否显示金额：未登录且开启「未登录隐藏价格」时不显示价格 / 剩余价值

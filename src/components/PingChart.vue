@@ -157,7 +157,7 @@ const chartOption = computed(() => {
       data: CARRIERS.map(c => c.label), bottom: 4, itemWidth: 10, itemHeight: 8, icon: 'roundRect',
       textStyle: { fontSize: 10, color: themeVars.value.textColor3 },
     },
-    grid: { top: 16, right: 16, bottom: 30, left: 44 },
+    grid: { top: 16, right: 16, bottom: 46, left: 44 },
     xAxis: { type: 'category', data: xs, boundaryGap: false, axisLabel: { fontSize: 10, color: themeVars.value.textColor3 }, axisLine: { lineStyle: { color: themeVars.value.borderColor } }, axisTick: { show: false } },
     yAxis: [
       { type: 'value', name: 'ms', nameTextStyle: { color: themeVars.value.textColor3 }, axisLabel: { fontSize: 10, color: themeVars.value.textColor3 }, splitLine: { lineStyle: { color: themeVars.value.progressRailColor, type: 'dashed' as const } } },

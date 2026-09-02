@@ -342,8 +342,7 @@ watch(() => nodesStore.groups, (gs) => {
 .node-card-switch-appear-active {
   transition:
     opacity 320ms ease,
-    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
-    filter 320ms ease;
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
   transition-delay: var(--node-item-delay, 0ms);
 }
 
@@ -361,7 +360,6 @@ watch(() => nodesStore.groups, (gs) => {
 .node-card-switch-enter-from {
   opacity: 0;
   transform: translateY(12px) scale(0.985);
-  filter: blur(3px);
 }
 
 .node-card-switch-leave-to {
