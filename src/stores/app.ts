@@ -3,8 +3,9 @@ import { getLocalThemeSettings, subscribeLocalThemeSettings } from '@/services/t
 import { useStorage } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { loadLocale } from '@/i18n'
 
-export type ThemeMode = 'auto' | 'light' | 'dark' | 'beijing'
+export type ThemeMode = 'light' | 'dark'
 export type Lang = 'zh-CN' | 'en-US'
 export type NodeViewMode = 'card' | 'list'
 export type NodeCardSize = 'mini' | 'compact' | 'comfortable' | 'large'
@@ -102,8 +103,8 @@ const useAppStore = defineStore('app', () => {
   const connectionError = ref(false)
   const loginRequired = ref(false)
 
-  const themeMode = useStorage<ThemeMode>('theme_mode', 'auto', localStorage)
-  const lang = ref<Lang>('zh-CN')
+  const themeMode = useStorage<ThemeMode>('theme_mode', 'light', localStorage)
+  const lang = ref<Lang>((typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('zh')) ? 'zh-CN' : 'en-US')
   const nodeSelectedGroup = useStorage<string>('node_selected_group', 'all', localStorage)
   const favoriteNodeIds = useStorage<string[]>('theme:favorite-nodes:v1', [], localStorage)
   const storedViewMode = useStorage<NodeViewMode | null>('node_view_mode', null, localStorage)
@@ -188,34 +189,69 @@ const useAppStore = defineStore('app', () => {
   })
 
   function isValidThemeMode(value: unknown): value is ThemeMode {
-    return value === 'auto' || value === 'light' || value === 'dark' || value === 'beijing'
+    return value === 'light' || value === 'dark'
   }
 
-  const isDark = computed(() => {
-    const mode = isValidThemeMode(themeMode.value) ? themeMode.value : 'auto'
-    if (mode === 'light')
-      return false
-    if (mode === 'dark')
-      return true
-    if (mode === 'beijing') {
-      const hour = new Date().getHours()
-      return hour < 7 || hour >= 19
-    }
-    if (typeof window !== 'undefined' && window.matchMedia)
-      return window.matchMedia('(prefers-color-scheme: dark)').matches
-    return true
-  })
+  const isDark = computed(() => isValidThemeMode(themeMode.value) ? themeMode.value === 'dark' : false)
 
   const resolvedThemeMode = computed<'light' | 'dark'>(() => isDark.value ? 'dark' : 'light')
 
-  function updateThemeMode(): void {
-    const order: ThemeMode[] = ['auto', 'light', 'dark']
-    const index = order.indexOf(isValidThemeMode(themeMode.value) ? themeMode.value : 'auto')
-    themeMode.value = order[(index + 1) % order.length] ?? 'auto'
+  function updateThemeMode(origin?: { x: number, y: number }): void {
+    const current = isValidThemeMode(themeMode.value) ? themeMode.value : 'light'
+    flipThemeMode(current === 'dark' ? 'light' : 'dark', origin)
+  }
+
+  /** 亮暗切换：圆心/半径写入 CSS 变量，由 View Transition 伪元素自己播圆形展开。 */
+  let themeTransitionSeq = 0
+  function flipThemeMode(next: ThemeMode, origin?: { x: number, y: number }): void {
+    const doc = document as Document & { startViewTransition?: (callback: () => void) => { finished?: Promise<void> } }
+    const setTheme = () => { themeMode.value = next }
+    const reducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (typeof window === 'undefined' || typeof doc.startViewTransition !== 'function' || reducedMotion) {
+      setTheme()
+      return
+    }
+
+    const fallbackX = window.innerWidth - 48
+    const fallbackY = 28
+    const usedFallback = !(origin && Number.isFinite(origin.x) && origin.x > 0 && Number.isFinite(origin.y) && origin.y > 0)
+    const x = usedFallback ? fallbackX : Number(origin?.x)
+    const y = usedFallback ? fallbackY : Number(origin?.y)
+    const vw = Math.max(window.innerWidth, 1)
+    const vh = Math.max(window.innerHeight, 1)
+    const radius = Math.hypot(Math.max(x, vw - x), Math.max(y, vh - y))
+    const maxRadius = Math.hypot(vw, vh) / Math.SQRT2
+    const root = document.documentElement
+    const seq = ++themeTransitionSeq
+
+    root.dataset.themeTransition = next === 'dark' ? 'to-dark' : 'to-light'
+    root.style.setProperty('--theme-transition-x', `${(x / vw) * 100}%`)
+    root.style.setProperty('--theme-transition-y', `${(y / vh) * 100}%`)
+    root.style.setProperty('--theme-transition-radius', `${(100 * radius) / maxRadius}%`)
+
+    const clearTransitionVars = () => {
+      if (seq !== themeTransitionSeq)
+        return
+      delete root.dataset.themeTransition
+      root.style.removeProperty('--theme-transition-x')
+      root.style.removeProperty('--theme-transition-y')
+      root.style.removeProperty('--theme-transition-radius')
+    }
+
+    try {
+      const transition = doc.startViewTransition(setTheme)
+      Promise.resolve(transition.finished).finally(clearTransitionVars)
+    }
+    catch {
+      clearTransitionVars()
+      setTheme()
+    }
   }
 
   function setLanguage(language: Lang): void {
     lang.value = language
+    void loadLocale(language)
   }
 
   const glassColorPreset = computed<GlassColorPreset>(() => {
@@ -310,13 +346,7 @@ const useAppStore = defineStore('app', () => {
       lang.value = 'zh-CN'
     else
       lang.value = 'en-US'
-    // 若访客未手工切换过主题，则遵循站点预设外观（preferred_theme）
-    if (themeMode.value === 'auto') {
-      if (nextConfig.preferred_theme === 'dark')
-        themeMode.value = 'dark'
-      else if (nextConfig.preferred_theme === 'light')
-        themeMode.value = 'light'
-    }
+    void loadLocale(lang.value)
   }
 
   function setServersData(data: CfsmServersResponse): void {
@@ -331,7 +361,7 @@ const useAppStore = defineStore('app', () => {
 
   watch(themeMode, (mode) => {
     if (!isValidThemeMode(mode))
-      themeMode.value = 'auto'
+      themeMode.value = 'light'
   }, { immediate: true })
 
   return {

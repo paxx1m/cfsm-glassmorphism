@@ -97,6 +97,14 @@ function applyLiveUpdate(node: NodeData, update: Partial<CfsmServer>): void {
   node.online = isServerOnline(node)
 }
 
+/** 就地合并全量数据，但只赋值真正变化的字段，避免无谓地触发响应式更新 */
+function patchNodeIfChanged(target: NodeData, next: NodeData): void {
+  for (const key of Object.keys(next) as Array<keyof NodeData>) {
+    if (target[key] !== next[key])
+      ;(target as Record<string, unknown>)[key] = next[key]
+  }
+}
+
 const useNodesStore = defineStore('nodes', () => {
   const nodes = ref<NodeData[]>([])
   const wsConnectionState = ref<WsConnectionState>('disconnected')
@@ -104,8 +112,6 @@ const useNodesStore = defineStore('nodes', () => {
   const nodeIndex = new Map<string, NodeData>()
 
   const visibleNodes = computed(() => nodes.value)
-  const onlineCount = computed(() => nodes.value.filter(node => node.online).length)
-  const totalCount = computed(() => nodes.value.length)
 
   const groups = computed(() => {
     const set = new Set<string>()
@@ -144,8 +150,8 @@ const useNodesStore = defineStore('nodes', () => {
     for (const server of servers) {
       const existing = nodeIndex.get(server.id)
       if (existing) {
-        // 就地更新静态字段（复用 createNodeFromServer 的所有字段）
-        Object.assign(existing, createNodeFromServer(server))
+        // 就地更新静态字段；逐字段跳过未变化的值，避免每轮全量刷新把所有卡片标脏重渲染
+        patchNodeIfChanged(existing, createNodeFromServer(server))
       }
       else {
         addIndexedNode(createNodeFromServer(server))
@@ -189,8 +195,6 @@ const useNodesStore = defineStore('nodes', () => {
     wsConnectionState,
     wsReconnectAttempts,
     visibleNodes,
-    onlineCount,
-    totalCount,
     groups,
     nodesById,
     visibleNodesById,

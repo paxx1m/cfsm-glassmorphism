@@ -1,5 +1,6 @@
 import type { NodeData } from '@/stores/nodes'
 import { computed, type ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const GOOD_THRESHOLD = 80
 const WARNING_THRESHOLD = 160
@@ -50,13 +51,18 @@ function fmtLoss(value: number | null | undefined | false): string {
 /**
  * 从 CF 节点数据计算延迟 / 丢包展示与迷你柱状条。
  * 优先使用 /api/servers 返回的三网窗口数组 node.ping / node.loss，
- * 缺失（或通过 options.enabled 关闭，用于视图失活时节省计算）时回退到当前值 ping_ct/cu/cm/bd 与 loss_*。
+ * 缺失（或通过 options.enabled 关闭，用于视图失活时节省计算）时回退到当前值 ping_ct/cu/cm 与 loss_*。
  */
 export function useNodePingDisplay(getNode: () => NodeData | undefined, options?: { enabled?: () => boolean }) {
   const node = computed(() => getNode())
+  const { t } = useI18n()
 
-  const carriers = ['ct', 'cu', 'cm', 'bd'] as const
-  const carrierLabels: Record<string, string> = { ct: '电信', cu: '联通', cm: '移动', bd: 'BGP' }
+  const carriers = ['ct', 'cu', 'cm'] as const
+  const carrierLabels = computed<Record<string, string>>(() => ({
+    ct: t('pingChart.carrierCt'),
+    cu: t('pingChart.carrierCu'),
+    cm: t('pingChart.carrierCm'),
+  }))
 
   function isEnabled(): boolean {
     return options?.enabled ? options.enabled() : true
@@ -67,6 +73,7 @@ export function useNodePingDisplay(getNode: () => NodeData | undefined, options?
     if (!current)
       return []
     const window = kind === 'ping' ? current.ping : current.loss
+    const fmtVal = kind === 'ping' ? fmtLatency : fmtLoss
     if (isEnabled() && Array.isArray(window) && window.length > 0) {
       return window
         .slice(-10)
@@ -80,17 +87,18 @@ export function useNodePingDisplay(getNode: () => NodeData | undefined, options?
           const nonNull = values.length ? values : null
           const avg = nonNull ? nonNull.reduce((sum, v) => sum + v, 0) / nonNull.length : null
           const display = avg ?? null
+          const detail = carriers.map(c => `${carrierLabels.value[c]} ${fmtVal(point[c])}`).join('　')
           return {
             key: `${kind}-${point.ts}-${index}`,
             value: display,
             loss: display === null,
-            tooltip: `时间 ${new Date(point.ts).toLocaleTimeString()}`,
+            tooltip: `${new Date(point.ts).toLocaleTimeString()}\n${detail}`,
             className: kind === 'ping' ? latencyClassName(display) : lossClassName(display),
           }
         })
     }
 
-    // 回退：当前四线值
+    // 回退：当前三网值
     return carriers.map((carrier) => {
       const raw = kind === 'ping' ? current[`ping_${carrier}`] : current[`loss_${carrier}`]
       const value = raw === false || raw === null || raw === undefined ? null : Number(raw)
@@ -98,7 +106,7 @@ export function useNodePingDisplay(getNode: () => NodeData | undefined, options?
         key: `${kind}-${carrier}`,
         value,
         loss: value === null,
-        tooltip: `${carrierLabels[carrier]} · ${kind === 'ping' ? fmtLatency(raw) : fmtLoss(raw)}`,
+        tooltip: t('pingChart.carrierTooltip', { carrier: carrierLabels.value[carrier], value: kind === 'ping' ? fmtLatency(raw) : fmtLoss(raw) }),
         className: kind === 'ping' ? latencyClassName(value) : lossClassName(value),
       }
     })
@@ -138,7 +146,7 @@ export function useNodePingDisplay(getNode: () => NodeData | undefined, options?
     if (!current)
       return ''
     return carriers
-      .map(carrier => `${carrierLabels[carrier]} ${fmtLatency(current[`ping_${carrier}`])}`)
+      .map(carrier => `${carrierLabels.value[carrier]} ${fmtLatency(current[`ping_${carrier}`])}`)
       .join(' · ')
   })
 
@@ -147,7 +155,7 @@ export function useNodePingDisplay(getNode: () => NodeData | undefined, options?
     if (!current)
       return ''
     return carriers
-      .map(carrier => `${carrierLabels[carrier]} ${fmtLoss(current[`loss_${carrier}`])}`)
+      .map(carrier => `${carrierLabels.value[carrier]} ${fmtLoss(current[`loss_${carrier}`])}`)
       .join(' · ')
   })
 

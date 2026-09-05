@@ -1,5 +1,5 @@
 import type { NodeData } from '@/stores/nodes'
-import { calculateRemainingValueCNY, formatFinanceAmount } from '@/utils/financeHelper'
+import { formatFinanceAmount, getRemainingValueCNY } from '@/utils/financeHelper'
 
 /** 计费周期定义，与 CF-Server-Monitor 内置 server.js 保持一致 */
 export interface BillingCycle {
@@ -134,16 +134,6 @@ export function formatBillingPrice(server: Pick<NodeData, 'price' | 'currency' |
   return `${currency}${price}/${cycleLabel}`
 }
 
-/** 兼容旧组件命名的包装函数 */
-export function formatPriceWithCycle(price: number | string, billingCycle: string, currency: string, lang: 'zh-CN' | 'en-US' = 'zh-CN'): string {
-  return formatBillingPrice({ price: String(price), billing_cycle: billingCycle, currency }, lang)
-}
-
-/** 简单金额格式化 */
-export function formatPrice(amount: number, currency: string, lang: 'zh-CN' | 'en-US' = 'zh-CN'): string {
-  return formatCurrencyValue(amount, currency)
-}
-
 /** 金额格式化：数值 + 币种符号 */
 export function formatCurrencyValue(value: number, currency: string): string {
   const safe = Number.isFinite(value) ? value : 0
@@ -200,19 +190,9 @@ export function getExpireText(expireDate: string | null | undefined, lang: 'zh-C
   return lang === 'zh-CN' ? `剩余 ${days} 天` : `${days} days left`
 }
 
-/** 剩余价值（按到期日与计费周期折算） */
-export function getRemainingValue(price: number | string, billingCycle: string, expireDate: string): number {
-  const normalizedPrice = Number(normalizePrice(price))
-  const node = { price: String(price), billing_cycle: billingCycle, expire_date: expireDate } as NodeData
-  const priceCNY = getPriceCNY(node)
-  return calculateRemainingValueCNY(node, priceCNY)
-}
-
-function getPriceCNY(node: NodeData): number {
-  const priceText = normalizePrice(node.price)
-  if (!priceText || isFreePrice(priceText))
-    return 0
-  return Number(priceText) || 0
+/** 剩余价值（按到期日与计费周期折算，含汇率换算）。统一走 financeHelper，与首页合计同源。 */
+export function getRemainingValue(price: number | string, billingCycle: string, expireDate: string, currency?: string): number {
+  return getRemainingValueCNY({ price: String(price), billing_cycle: billingCycle, expire_date: expireDate, currency })
 }
 
 /** 标签解析：逗号分隔 → [{text}] */

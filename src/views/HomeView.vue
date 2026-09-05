@@ -2,6 +2,7 @@
 import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
 import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -18,15 +19,10 @@ import { isNodeMatchSearch } from '@/utils/nodeSearch'
 
 defineOptions({ name: 'HomeView' })
 
-interface QuickControlOption {
-  key: string
-  label: string
-  icon: string
-}
-
 const appStore = useAppStore()
 const nodesStore = useNodesStore()
 const router = useRouter()
+const { t } = useI18n()
 
 const isViewActive = ref(true)
 
@@ -43,15 +39,15 @@ const searchText = ref('')
 const debouncedSearchText = ref('')
 const activeQuickControl = ref<string | null>(null)
 
-const quickControlDefinitions: Record<string, QuickControlOption> = {
-  favorite: { key: 'favorite', label: '收藏', icon: 'tabler:star' },
-  totalTraffic: { key: 'totalTraffic', label: '总流量', icon: 'tabler:database' },
-  upload: { key: 'upload', label: '上行', icon: 'tabler:chevron-up' },
-  download: { key: 'download', label: '下行', icon: 'tabler:chevron-down' },
-  peak: { key: 'peak', label: '峰值', icon: 'tabler:activity' },
-  offline: { key: 'offline', label: '离线', icon: 'tabler:plug-connected-x' },
-  highLoad: { key: 'highLoad', label: '高负载', icon: 'tabler:alert-triangle' },
-  expiring: { key: 'expiring', label: '即将到期', icon: 'tabler:calendar-exclamation' },
+const quickControlDefinitions: Record<string, { key: string, labelKey: string, icon: string }> = {
+  favorite: { key: 'favorite', labelKey: 'home.quick.favorite', icon: 'tabler:star' },
+  totalTraffic: { key: 'totalTraffic', labelKey: 'home.quick.totalTraffic', icon: 'tabler:database' },
+  upload: { key: 'upload', labelKey: 'home.quick.upload', icon: 'tabler:chevron-up' },
+  download: { key: 'download', labelKey: 'home.quick.download', icon: 'tabler:chevron-down' },
+  peak: { key: 'peak', labelKey: 'home.quick.peak', icon: 'tabler:activity' },
+  offline: { key: 'offline', labelKey: 'home.quick.offline', icon: 'tabler:plug-connected-x' },
+  highLoad: { key: 'highLoad', labelKey: 'home.quick.highLoad', icon: 'tabler:alert-triangle' },
+  expiring: { key: 'expiring', labelKey: 'home.quick.expiring', icon: 'tabler:calendar-exclamation' },
 }
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -64,7 +60,7 @@ watch(searchText, (value) => {
 })
 
 const groups = computed(() => [
-  { tab: '全部节点', name: 'all' },
+  { tab: t('home.allNodes'), name: 'all' },
   ...nodesStore.groups.map(group => ({ tab: group, name: group })),
 ])
 
@@ -137,7 +133,10 @@ const quickControlKeys = computed(() => {
   return appStore.homeQuickControlsEnabled ? keys : []
 })
 
-const quickControls = computed(() => quickControlKeys.value.map(key => quickControlDefinitions[key]))
+const quickControls = computed(() => quickControlKeys.value.map((key) => {
+  const def = quickControlDefinitions[key]
+  return { key: def.key, label: t(def.labelKey), icon: def.icon }
+}))
 
 const nodeList = computed(() => {
   let filtered = groupNodeList.value
@@ -155,10 +154,10 @@ const quickControlCounts = computed<Record<string, number>>(() => {
 
 const emptyDescription = computed(() => {
   if (debouncedSearchText.value.trim())
-    return '没有匹配的服务器'
+    return t('home.empty.noMatch')
   if (activeQuickControl.value)
-    return '当前快捷筛选下暂无服务器'
-  return '暂无服务器'
+    return t('home.empty.noFilter')
+  return t('home.empty.none')
 })
 
 function clearSearch(): void {
@@ -236,7 +235,7 @@ watch(() => nodesStore.groups, (gs) => {
                     class="inline-flex h-6.5 flex-none shrink-0 items-center gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     :class="activeQuickControl === control.key ? 'bg-background text-selection shadow-sm' : ''"
                     :aria-pressed="activeQuickControl === control.key"
-                    :aria-label="`${control.label}，${quickControlCounts[control.key] ?? 0} 台`"
+                    :aria-label="t('home.quick.aria', { label: control.label, count: quickControlCounts[control.key] ?? 0 })"
                     @click="setQuickControl(control.key)"
                   >
                     <Icon :icon="control.icon" :width="12" :height="12" />
@@ -250,7 +249,7 @@ watch(() => nodesStore.groups, (gs) => {
             </div>
             <div class="search flex min-w-0 flex-wrap gap-2 items-center justify-end pointer-events-auto max-sm:justify-start xl:ml-auto">
               <Button
-                variant="outline" size="icon" aria-label="卡片视图"
+                variant="outline" size="icon" :aria-label="t('home.viewCard')"
                 class="w-8 h-8 border-none bg-background/50 backdrop-blur-xs shadow-none hover:bg-background/60 rounded-md"
                 :class="[appStore.nodeViewMode === 'card' ? '!text-selection !bg-background' : '']"
                 @click="setNodeViewMode('card')"
@@ -258,7 +257,7 @@ watch(() => nodesStore.groups, (gs) => {
                 <Icon icon="tabler:layout-grid" :width="14" :height="14" />
               </Button>
               <Button
-                variant="outline" size="icon" aria-label="列表视图"
+                variant="outline" size="icon" :aria-label="t('home.viewList')"
                 class="w-8 h-8 border-none bg-background/50 backdrop-blur-xs shadow-none hover:bg-background/60 rounded-md"
                 :class="[appStore.nodeViewMode === 'list' ? '!text-selection !bg-background' : '']"
                 @click="setNodeViewMode('list')"
@@ -268,8 +267,8 @@ watch(() => nodesStore.groups, (gs) => {
               <div class="relative z-1 h-8" :class="searchText ? 'w-full sm:w-60' : 'w-8'">
                 <div class="absolute top-0 right-0 w-full">
                   <Input
-                    v-model="searchText" placeholder="搜索名称、地区、CPU、标签"
-                    aria-label="搜索服务器"
+                    v-model="searchText" :placeholder="t('home.searchPlaceholder')"
+                    :aria-label="t('home.searchLabel')"
                     class="transition-all border-none shadow-none h-8 bg-background/50 backdrop-blur-xs rounded-md hover:!bg-background/60 focus:!pl-7.5 focus:placeholder:!text-muted-foreground focus:!bg-background/80 focus:!ring-slate-500/10"
                     :class="searchText ? '!w-full sm:!w-60 !pl-7.5 pr-7 placeholder:!text-muted-foreground' : 'w-8 placeholder:text-transparent focus:!w-52 sm:focus:!w-60'"
                     @keydown.esc.prevent="clearSearch"
@@ -282,7 +281,7 @@ watch(() => nodesStore.groups, (gs) => {
                     v-if="searchText"
                     type="button"
                     class="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label="清空搜索"
+                    :aria-label="t('home.searchClear')"
                     @click="clearSearch"
                   >
                     <Icon icon="tabler:x" :width="14" :height="14" />

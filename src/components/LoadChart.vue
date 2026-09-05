@@ -3,6 +3,7 @@ import type { HistoryRow } from '@/services/cfsm.service'
 import { Icon } from '@iconify/vue'
 import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import VChart from 'vue-echarts'
 import MetricChartHeader from '@/components/MetricChartHeader.vue'
 import { CardX } from '@/components/ui/card-x'
@@ -31,6 +32,7 @@ const appStore = useAppStore()
 const nodesStore = useNodesStore()
 
 const themeVars = useThemeVars()
+const { t } = useI18n()
 
 const history = ref<HistoryRow[]>([])
 const loading = ref(false)
@@ -62,7 +64,7 @@ async function loadData(): Promise<void> {
     history.value = rows
   }
   catch (err) {
-    error.value = err instanceof Error ? err.message : '获取历史数据失败'
+    error.value = err instanceof Error ? err.message : t('loadChart.historyError')
     history.value = []
   }
   finally {
@@ -145,7 +147,7 @@ const cpuChartOption = computed(() => ({
     axisLabel: { ...baseYAxis.value.axisLabel, formatter: '{value}%' },
   }, {
     ...baseYAxis.value,
-    name: '负载',
+    name: t('loadChart.load'),
     min: 0,
     splitLine: { show: false },
   }],
@@ -168,7 +170,7 @@ const cpuChartOption = computed(() => ({
       },
     },
     {
-      name: '负载',
+      name: t('loadChart.load'),
       type: 'line',
       data: seriesData.value.load,
       showSymbol: false,
@@ -192,7 +194,7 @@ const memoryChartOption = computed(() => ({
   legend: { data: ['RAM', 'Swap'], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
   grid: { top: 24, right: 16, bottom: 46, left: 52 },
   xAxis: baseXAxis.value,
-  yAxis: { ...baseYAxis.value, name: '内存', axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
+  yAxis: { ...baseYAxis.value, name: t('loadChart.memory'), axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
   series: [
     {
       name: 'RAM', type: 'line', data: seriesData.value.ram,
@@ -206,48 +208,23 @@ const memoryChartOption = computed(() => ({
   ],
 }))
 
-/* 磁盘用量图：暂不需要，注释保留
-const diskChartOption = computed(() => ({
-  animation: false,
-  tooltip: {
-    ...baseTooltip.value,
-    valueFormatter: (value: number | null) => value == null ? '-' : formatBytes(value),
-  },
-  legend: { data: ['磁盘已用', '总量'], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
-  grid: { top: 24, right: 16, bottom: 46, left: 52 },
-  xAxis: baseXAxis.value,
-  yAxis: { ...baseYAxis.value, name: '磁盘', axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
-  series: [
-    {
-      name: '磁盘已用', type: 'line', data: seriesData.value.diskUsed,
-      showSymbol: false, lineStyle: { width: 1.5, color: chartColors.value.tertiary, cap: 'round' as const },
-      areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: chartColors.value.tertiaryAreaStrong }, { offset: 1, color: chartColors.value.tertiaryAreaFaint }] } },
-    },
-    {
-      name: '总量', type: 'line', data: seriesData.value.diskTotal,
-      showSymbol: false, lineStyle: { width: 1.2, type: 'dashed' as const, color: chartColors.value.quinary, cap: 'round' as const },
-    },
-  ],
-}))
-*/
-
 const diskIoChartOption = computed(() => ({
   animation: false,
   tooltip: {
     ...baseTooltip.value,
     valueFormatter: (value: number | null) => value == null ? '-' : `${formatBytes(value)}/s`,
   },
-  legend: { data: ['读取', '写入'], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
+  legend: { data: [t('loadChart.read'), t('loadChart.write')], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
   grid: { top: 24, right: 16, bottom: 46, left: 52 },
   xAxis: baseXAxis.value,
-  yAxis: { ...baseYAxis.value, name: '磁盘 IO', axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
+  yAxis: { ...baseYAxis.value, name: t('loadChart.diskIo'), axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
   series: [
     {
-      name: '读取', type: 'line', data: seriesData.value.diskRead,
+      name: t('loadChart.read'), type: 'line', data: seriesData.value.diskRead,
       showSymbol: false, lineStyle: { width: 1.5, color: chartColors.value.primary, cap: 'round' as const },
     },
     {
-      name: '写入', type: 'line', data: seriesData.value.diskWrite,
+      name: t('loadChart.write'), type: 'line', data: seriesData.value.diskWrite,
       showSymbol: false, lineStyle: { width: 1.5, color: chartColors.value.quaternary, cap: 'round' as const },
     },
   ],
@@ -259,17 +236,17 @@ const networkChartOption = computed(() => ({
     ...baseTooltip.value,
     valueFormatter: (value: number | null) => value == null ? '-' : `${formatBytes(value)}/s`,
   },
-  legend: { data: ['下行', '上行'], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
+  legend: { data: [t('loadChart.downlink'), t('loadChart.uplink')], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
   grid: { top: 24, right: 16, bottom: 46, left: 52 },
   xAxis: baseXAxis.value,
-  yAxis: { ...baseYAxis.value, name: '速度', axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
+  yAxis: { ...baseYAxis.value, name: t('loadChart.network'), axisLabel: { ...baseYAxis.value.axisLabel, formatter: (val: number) => formatBytes(val) } },
   series: [
     {
-      name: '下行', type: 'line', data: seriesData.value.netIn,
+      name: t('loadChart.downlink'), type: 'line', data: seriesData.value.netIn,
       showSymbol: false, lineStyle: { width: 1.5, color: chartColors.value.quinary, cap: 'round' as const },
     },
     {
-      name: '上行', type: 'line', data: seriesData.value.netOut,
+      name: t('loadChart.uplink'), type: 'line', data: seriesData.value.netOut,
       showSymbol: false, lineStyle: { width: 1.5, color: chartColors.value.quaternary, cap: 'round' as const },
     },
   ],
@@ -364,7 +341,7 @@ const connectionsChartOption = computed(() => ({
   legend: { data: ['TCP', 'UDP'], bottom: 4, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 10, color: themeVars.value.textColor3 } },
   grid: { top: 24, right: 16, bottom: 46, left: 48 },
   xAxis: baseXAxis.value,
-  yAxis: { ...baseYAxis.value, name: '连接数', min: 0 },
+  yAxis: { ...baseYAxis.value, name: t('loadChart.connections'), min: 0 },
   series: [
     {
       name: 'TCP', type: 'line', data: seriesData.value.tcp,
@@ -385,10 +362,10 @@ const processChartOption = computed(() => ({
   },
   grid: { top: 24, right: 16, bottom: 28, left: 48 },
   xAxis: baseXAxis.value,
-  yAxis: { ...baseYAxis.value, name: '进程', min: 0 },
+  yAxis: { ...baseYAxis.value, name: t('loadChart.process'), min: 0 },
   series: [
     {
-      name: '进程数', type: 'line', data: seriesData.value.process,
+      name: t('loadChart.processes'), type: 'line', data: seriesData.value.process,
       showSymbol: false, lineStyle: { width: 1.5, color: chartColors.value.quaternary, cap: 'round' as const },
       areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(167,139,250,0.25)' }, { offset: 1, color: 'rgba(167,139,250,0.02)' }] } },
     },
@@ -405,13 +382,13 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
         {{ error }}
       </div>
       <div v-else-if="history.length === 0 && !loading" class="py-8">
-        <Empty description="暂无历史数据" />
+        <Empty :description="t('loadChart.noHistory')" /> />
       </div>
 
       <div v-else class="gap-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'cpu')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md" data-load-chart-card="cpu">
           <template #header>
-            <MetricChartHeader title="CPU 与负载" icon="tabler:cpu" tone="rose">
+            <MetricChartHeader :title="t('loadChart.cpuLoad')" icon="tabler:cpu" tone="rose">
               <span v-if="latestStatus?.cpu != null" class="text-xs">{{ latestStatus.cpu.toFixed(1) }}%</span>
               <span v-else class="text-xs">-</span>
             </MetricChartHeader>
@@ -423,7 +400,7 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
 
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'memory')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <template #header>
-            <MetricChartHeader title="内存与 Swap" icon="tabler:database" tone="violet">
+            <MetricChartHeader :title="t('loadChart.memorySwap')" icon="tabler:database" tone="violet">
               <span class="text-xs">RAM {{ formatBytes(node?.ram_total ?? 0) }}</span>
             </MetricChartHeader>
           </template>
@@ -432,22 +409,11 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
           </div>
         </CardX>
 
-        <!-- 磁盘用量图：暂注释，保留卡片渲染占位
-        <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'disk')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
-          <template #header>
-            <MetricChartHeader title="磁盘" icon="tabler:device-floppy" tone="emerald">
-              <span class="text-xs">{{ formatBytes(node?.disk_total ?? 0) }}</span>
-            </MetricChartHeader>
-          </template>
-          <div class="h-48">
-            <VChart :option="diskChartOption" autoresize />
-          </div>
-        </CardX>
-        -->
+        
 
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'diskIo')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <template #header>
-            <MetricChartHeader title="磁盘 IO" icon="tabler:device-floppy" tone="cyan">
+            <MetricChartHeader :title="t('loadChart.diskIo')" icon="tabler:device-floppy" tone="cyan">
               <span class="text-xs">B/s · IOPS</span>
             </MetricChartHeader>
           </template>
@@ -458,7 +424,7 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
 
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'network')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <template #header>
-            <MetricChartHeader title="实时网络" icon="tabler:network" tone="sky">
+            <MetricChartHeader :title="t('loadChart.realtimeNetwork')" icon="tabler:network" tone="sky">
               <span class="text-xs flex gap-2 items-center">
                 <span class="flex items-center gap-0.5"><Icon icon="tabler:chevron-up" width="12" height="12" />{{ formatBytes(node?.net_out_speed ?? 0) }}</span>
                 <span class="flex items-center gap-0.5"><Icon icon="tabler:chevron-down" width="12" height="12" />{{ formatBytes(node?.net_in_speed ?? 0) }}</span>
@@ -472,7 +438,7 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
 
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'gpu') && appStore.gpuChartEnabled" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <template #header>
-            <MetricChartHeader title="GPU 利用率" icon="tabler:device-desktop-analytics" tone="sky">
+            <MetricChartHeader :title="t('loadChart.gpu')" icon="tabler:device-desktop-analytics" tone="sky">
               <span v-if="latestStatus" class="text-xs">{{ gpuUsage(latestStatus) == null ? '-' : `${gpuUsage(latestStatus)?.toFixed(1)}%` }}</span>
             </MetricChartHeader>
           </template>
@@ -483,7 +449,7 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
 
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'network')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <template #header>
-            <MetricChartHeader title="网络连接" icon="tabler:binary-tree" tone="amber">
+            <MetricChartHeader :title="t('loadChart.connectionsChart')" icon="tabler:binary-tree" tone="amber">
               <span class="text-xs">TCP {{ node?.tcp_conn ?? '-' }}</span>
             </MetricChartHeader>
           </template>
@@ -494,7 +460,7 @@ const latestStatus = computed(() => normHistory.value.at(-1) ?? null)
 
         <CardX v-if="appStore.chartDashboardCards.some(c => c.key === 'network')" size="small" content-class="pt-2" class="glass-surface bg-background/50 border-none hover:bg-slate-500/10 transition-all rounded-md">
           <template #header>
-            <MetricChartHeader title="进程" icon="tabler:activity" tone="slate">
+            <MetricChartHeader :title="t('loadChart.processChart')" icon="tabler:activity" tone="slate">
               <span class="text-xs">{{ node?.processes ?? '-' }}</span>
             </MetricChartHeader>
           </template>

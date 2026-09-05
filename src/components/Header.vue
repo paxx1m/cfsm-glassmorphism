@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { computed, inject, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -10,18 +11,17 @@ import { useAppStore } from '@/stores/app'
 
 const router = useRouter()
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const isScrolled = inject<ReturnType<typeof ref<boolean>>>('isScrolled', ref(false))
 
 const siteFavicon = ref('/favicon.ico')
-const themeTitleMap = {
-  auto: '跟随系统主题',
-  light: '浅色主题',
-  dark: '深色主题',
-} as const
+const themeTitleMap = computed(() => ({
+  light: t('header.themeLight'),
+  dark: t('header.themeDark'),
+}) as const)
 
 const themeIconMap = {
-  auto: appStore.isDark ? 'icon-park-outline:moon' : 'icon-park-outline:sun-one',
   light: 'icon-park-outline:sun-one',
   dark: 'icon-park-outline:moon',
 } as const
@@ -34,21 +34,23 @@ interface ActionButton {
 }
 
 const actionButtons = computed<ActionButton[]>(() => {
+  const current = appStore.themeMode === 'dark' ? 'dark' : 'light'
+  const next = current === 'dark' ? 'light' : 'dark'
   const buttons: ActionButton[] = [
     {
-      title: `${themeTitleMap[appStore.themeMode]}（点击切换）`,
-      icon: themeIconMap[appStore.themeMode],
+      title: t('header.toggleTheme', { theme: themeTitleMap.value[next] }),
+      icon: themeIconMap[current],
       action: 'toggleTheme',
     },
   ]
   buttons.push({
-    title: '主题设置',
+    title: t('header.openSettings'),
     icon: 'tabler:adjustments',
     action: 'openSettings',
   })
   if (appStore.isPublic || appStore.authorization) {
     buttons.push({
-      title: '后台管理',
+      title: t('header.admin'),
       icon: 'icon-park-outline:setting',
       action: 'jumpToSetting',
     })
@@ -56,11 +58,18 @@ const actionButtons = computed<ActionButton[]>(() => {
   return buttons
 })
 
-function handleButtonClick(action: string) {
+function handleButtonClick(action: string, event?: MouseEvent) {
   switch (action) {
-    case 'toggleTheme':
-      appStore.updateThemeMode()
+    case 'toggleTheme': {
+      const target = event?.currentTarget
+      const rect = target instanceof HTMLElement ? target.getBoundingClientRect() : null
+      const click = event ? { x: event.clientX, y: event.clientY } : undefined
+      const origin = click ?? (rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : undefined)
+      appStore.updateThemeMode(origin)
       break
+    }
     case 'openSettings':
       appStore.toggleSettings(true)
       break
@@ -68,6 +77,10 @@ function handleButtonClick(action: string) {
       window.location.href = '/admin#admin'
       break
   }
+}
+
+function toggleLanguage(): void {
+  appStore.setLanguage(appStore.lang === 'zh-CN' ? 'en-US' : 'zh-CN')
 }
 </script>
 
@@ -86,25 +99,36 @@ function handleButtonClick(action: string) {
           {{ appStore.siteTitle }}
         </h3>
       </div>
-      <TooltipProvider :delay-duration="200">
-        <div class="flex items-center gap-2">
-          <Tooltip v-for="button in actionButtons" :key="button.action">
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                :aria-label="button.title"
-                :aria-pressed="button.pressed"
-                :class="button.pressed && 'bg-background/70 text-selection'"
-                @click="handleButtonClick(button.action)"
-              >
-                <Icon :icon="button.icon" :width="18" :height="18" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{{ button.title }}</TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
+      <div class="flex items-center gap-1.5">
+        <TooltipProvider :delay-duration="200">
+          <div class="flex items-center gap-1.5">
+            <Tooltip v-for="button in actionButtons" :key="button.action">
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="button.title"
+                  :aria-pressed="button.pressed"
+                  :class="button.pressed && 'bg-background/70 text-selection'"
+                  @click="handleButtonClick(button.action, $event)"
+                >
+                  <Icon :icon="button.icon" :width="18" :height="18" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{{ button.title }}</TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+        <button
+          type="button"
+          class="inline-flex h-8 items-center justify-center rounded-md bg-background/50 px-2 text-xs font-semibold text-muted-foreground backdrop-blur-xl transition-colors hover:bg-background/60 hover:text-foreground"
+          :title="t('header.language')"
+          :aria-label="t('header.language')"
+          @click="toggleLanguage"
+        >
+          {{ appStore.lang === 'zh-CN' ? 'EN' : '中' }}
+        </button>
+      </div>
     </div>
   </div>
 

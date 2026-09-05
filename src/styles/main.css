@@ -3,6 +3,50 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* View Transitions API：主题切换圆形展开（方向由 data-theme-transition 决定） */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2147483646;
+}
+
+html[data-theme-transition='to-dark']::view-transition-old(root) {
+  z-index: 2147483646;
+  animation: theme-change 0.4s ease-in both;
+}
+
+html[data-theme-transition='to-dark']::view-transition-new(root) {
+  z-index: 1;
+}
+
+html[data-theme-transition='to-light']::view-transition-old(root) {
+  z-index: 1;
+}
+
+html[data-theme-transition='to-light']::view-transition-new(root) {
+  z-index: 2147483646;
+  animation: theme-change 0.4s ease-in both;
+  animation-direction: reverse;
+}
+
+@keyframes theme-change {
+  0% {
+    clip-path: circle(var(--theme-transition-radius) at var(--theme-transition-x) var(--theme-transition-y));
+  }
+
+  to {
+    clip-path: circle(0% at var(--theme-transition-x) var(--theme-transition-y));
+  }
+}
+
 /* 主题设置「卡片模糊度/不透明度」控制的玻璃卡片表面 */
 .glass-surface {
   background-color: color-mix(in srgb, var(--background) calc(var(--card-opacity, 0.74) * 100%), transparent);
@@ -12,6 +56,10 @@
 * {
   scrollbar-color: var(--ring) transparent;
   scrollbar-width: thin;
+}
+
+html {
+  background-color: var(--background);
 }
 
 :root {
@@ -38,19 +86,9 @@
   --info: oklch(0.6 0.118 230);
   --info-foreground: oklch(0.985 0 0);
   --selection: oklch(0.55 0.15 155);
-  --signal-1: #059669;
-  --signal-2: #4ade80;
-  --signal-3: #a3e635;
-  --signal-4: #facc15;
-  --signal-5: #f43f5e;
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
@@ -79,19 +117,9 @@
   --info: oklch(0.68 0.13 230);
   --info-foreground: oklch(0.141 0.005 285.823);
   --selection: oklch(0.74 0.17 162);
-  --signal-1: #10b981;
-  --signal-2: #4ade80;
-  --signal-3: #a3e635;
-  --signal-4: #fde047;
-  --signal-5: #fb7185;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
 }
 
 @theme inline {
@@ -118,19 +146,9 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-selection: var(--selection);
-  --color-signal-1: var(--signal-1);
-  --color-signal-2: var(--signal-2);
-  --color-signal-3: var(--signal-3);
-  --color-signal-4: var(--signal-4);
-  --color-signal-5: var(--signal-5);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --font-sans: var(--font-sans);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -216,16 +234,6 @@ html.color-vision-friendly {
   --destructive-foreground: #ffffff;
   --info: #8e477e;
   --info-foreground: #ffffff;
-  --chart-1: #0072b2;
-  --chart-2: #e69f00;
-  --chart-3: #009e73;
-  --chart-4: #cc79a7;
-  --chart-5: #d55e00;
-  --signal-1: #0072b2;
-  --signal-2: #56b4e9;
-  --signal-3: #009e73;
-  --signal-4: #e69f00;
-  --signal-5: #d55e00;
 }
 
 html.color-vision-friendly.dark {
@@ -238,30 +246,11 @@ html.color-vision-friendly.dark {
   --destructive-foreground: #14151a;
   --info: #d090c5;
   --info-foreground: #14151a;
-  --chart-1: #56b4e9;
-  --chart-2: #e69f00;
-  --chart-3: #44c7a0;
-  --chart-4: #d090c5;
-  --chart-5: #f28e5b;
-  --signal-1: #56b4e9;
-  --signal-2: #9bd7f0;
-  --signal-3: #44c7a0;
-  --signal-4: #e69f00;
-  --signal-5: #f28e5b;
 }
 
-html.color-vision-friendly .ping-signal-pattern-2 {
-  background-image: repeating-linear-gradient(135deg, transparent 0 2px, rgb(255 255 255 / 0.45) 2px 3px);
-}
-
-html.color-vision-friendly .ping-signal-pattern-3 {
-  background-image: repeating-linear-gradient(90deg, transparent 0 2px, rgb(0 0 0 / 0.28) 2px 3px);
-}
-
-html.color-vision-friendly .ping-signal-pattern-4 {
-  background-image: repeating-linear-gradient(45deg, transparent 0 1px, rgb(255 255 255 / 0.58) 1px 2px);
-}
-
+html.color-vision-friendly 
+html.color-vision-friendly 
+html.color-vision-friendly 
 html.legacy-webkit,
 html.legacy-webkit body {
   -webkit-text-size-adjust: 100%;
@@ -277,25 +266,14 @@ html.legacy-webkit [data-slot='card'] {
 }
 
 @layer utilities {
-  .flex-center {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
+  
   .flex-between {
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
 
-  .flex-col-center {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
   }
-}
 
 /* ===== 节点卡片毛玻璃 — 亮色透出背景 ===== */
 /* ===== 全局卡片毛玻璃（统一首页和详情页） ===== */

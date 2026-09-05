@@ -2,6 +2,7 @@
 import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { CardX } from '@/components/ui/card-x'
 import { useAppStore } from '@/stores/app'
 import { formatBytes, formatBytesPerSecond } from '@/utils/helper'
@@ -12,6 +13,7 @@ const props = defineProps<{
 }>()
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 interface OverviewCard {
   key: string
@@ -66,42 +68,42 @@ const cards = computed<OverviewCard[]>(() => {
   return [
     {
       key: 'memory',
-      label: '内存用量',
+      label: t('nodeGeneral.memory'),
       icon: 'icon-park-outline:memory',
       primary: memUsedPart.num,
       secondary: `${memUsedPart.unit} / ${formatBytes(memTotal.value)}`,
     },
     {
       key: 'disk',
-      label: '硬盘用量',
+      label: t('nodeGeneral.disk'),
       icon: 'tabler:server-2',
       primary: diskUsedPart.num,
       secondary: `${diskUsedPart.unit} / ${formatBytes(diskTotal.value)}`,
     },
     {
       key: 'remainingValue',
-      label: '剩余价值',
+      label: t('nodeGeneral.remainingValue'),
       icon: 'tabler:coins',
       primary: remainingValueText.value,
       secondary: '',
     },
     {
       key: 'totalTraffic',
-      label: '累计流量',
+      label: t('nodeGeneral.totalTraffic'),
       icon: 'tabler:arrows-transfer-up-down',
       primary: trafficPart.num,
       secondary: trafficPart.unit,
     },
     {
       key: 'uploadSpeed',
-      label: '实时上行',
+      label: t('nodeGeneral.uploadSpeed'),
       icon: 'tabler:chevron-up',
       primary: upPart.num,
       secondary: upPart.unit,
     },
     {
       key: 'downloadSpeed',
-      label: '实时下行',
+      label: t('nodeGeneral.downloadSpeed'),
       icon: 'tabler:chevron-down',
       primary: downPart.num,
       secondary: downPart.unit,

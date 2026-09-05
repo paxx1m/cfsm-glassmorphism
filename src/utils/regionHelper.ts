@@ -62,7 +62,3 @@ export function getRegionCode(region: string): string {
 export function getFlagUrl(region: string): string {
   return `/flags/${getRegionCode(region)}.svg`
 }
-
-export function getRegionStatsLabel(region: string, lang: 'zh-CN' | 'en-US' = 'zh-CN'): string {
-  return getRegionDisplayName(region, lang) || region || 'unknown'
-}

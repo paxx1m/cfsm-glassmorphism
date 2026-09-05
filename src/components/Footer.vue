@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const buildVersion = __BUILD_VERSION__
 </script>
@@ -21,7 +23,7 @@ const buildVersion = __BUILD_VERSION__
         </a>
         <!-- 版本升级提示：仅登录后 /api/config 会返回 last_workers_version -->
         <span v-if="appStore.lastWorkersVersion && appStore.lastWorkersVersion !== appStore.version" class="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-red-500">
-          发现新版本 {{ appStore.lastWorkersVersion }}
+          {{ t('footer.newVersion', { version: appStore.lastWorkersVersion }) }}
         </span>
       </div>
       <div class="flex flex-wrap gap-1 items-center justify-end text-right">

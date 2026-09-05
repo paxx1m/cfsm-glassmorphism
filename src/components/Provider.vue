@@ -18,7 +18,7 @@ watch(
     else root.classList.remove('dark')
     root.style.colorScheme = dark ? 'dark' : 'light'
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 )
 
 watch(

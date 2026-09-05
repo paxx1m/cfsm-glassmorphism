@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
-import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import NodePingListCell from '@/components/NodePingListCell.vue'
@@ -22,11 +22,10 @@ const emit = defineEmits<{
 }>()
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const formatBytes = (bytes: number) => formatBytesWithConfig(bytes, appStore.byteDecimals ?? {})
 const formatBytesPerSecond = (bytes: number) => formatBytesPerSecondWithConfig(bytes, appStore.byteDecimals ?? {})
-
-const rows = computed(() => props.nodes)
 
 function cpuClass(cpu: number): string {
   if (cpu >= 80)
@@ -69,22 +68,23 @@ function trafficClass(node: NodeData): string {
     <table class="w-full min-w-[720px] text-left text-xs">
       <thead>
         <tr class="border-b border-slate-500/10 text-[11px] text-muted-foreground">
-          <th class="px-3 py-2 font-medium">状态</th>
-          <th class="px-3 py-2 font-medium">服务器</th>
-          <th class="px-3 py-2 font-medium">地区</th>
-          <th class="px-3 py-2 font-medium">价格</th>
-          <th class="px-3 py-2 font-medium">CPU</th>
-          <th class="px-3 py-2 font-medium">内存</th>
-          <th class="px-3 py-2 font-medium">硬盘</th>
-          <th class="px-3 py-2 font-medium">流量</th>
-          <th class="px-3 py-2 font-medium">实时网速</th>
-          <th class="px-3 py-2 font-medium">延迟</th>
-          <th class="px-3 py-2 font-medium">更新</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.status') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.server') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.region') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.price') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.cpu') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.memory') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.disk') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.traffic') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.speed') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.latency') }}</th>
+          <th class="px-3 py-2 font-medium">{{ t('nodeList.updated') }}</th>
         </tr>
       </thead>
       <tbody>
         <tr
-          v-for="node in rows" :key="node.id"
+          v-for="node in nodes" :key="node.id"
+          v-memo="[node.online, node.name, node.cpu, node.ram_used, node.disk_used, node.net_in_speed, node.net_out_speed, node.last_updated, node.expire_date, appStore.showPrice, appStore.lang]"
           class="border-b border-slate-500/5 transition-colors hover:bg-background/60 cursor-pointer"
           @click="emit('click', node)"
         >
@@ -144,8 +144,8 @@ function trafficClass(node: NodeData): string {
         </tr>
       </tbody>
     </table>
-    <div v-if="!rows.length" class="py-8 text-center text-muted-foreground">
-      暂无节点
+    <div v-if="!nodes.length" class="py-8 text-center text-muted-foreground">
+      {{ t('nodeList.empty') }}
     </div>
   </div>
 </template>

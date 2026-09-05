@@ -23,6 +23,8 @@ const props = withDefaults(defineProps<Props>(), {
 const hasHeaderSlot = defineSlots<{
   'header'?: () => any
   'header-extra'?: () => any
+  /** 覆盖整个头部行（含左右两段），用于把头部整体抽成子组件以便跳过无关重渲染 */
+  'header-full'?: () => any
   'default'?: () => any
   'footer'?: () => any
 }>()
@@ -30,7 +32,7 @@ const hasHeaderSlot = defineSlots<{
 const attrs = useAttrs()
 
 const paddingClass = computed(() => {
-  const isShowHeader = hasHeaderSlot.header || hasHeaderSlot['header-extra'] || props.title
+  const isShowHeader = hasHeaderSlot.header || hasHeaderSlot['header-extra'] || hasHeaderSlot['header-full'] || props.title
   const pt = isShowHeader ? 'pt-0' : ''
   if (props.size === 'small')
     return `p-3 ${pt}`
@@ -71,7 +73,18 @@ const segmentedFooter = computed(() => {
     )"
   >
     <div
-      v-if="hasHeaderSlot.header || title || hasHeaderSlot['header-extra']"
+      v-if="hasHeaderSlot['header-full']"
+      :class="cn(
+        'flex items-center gap-2',
+        headerPaddingClass,
+        segmentedContent && 'border-b',
+        props.headerClass,
+      )"
+    >
+      <slot name="header-full" />
+    </div>
+    <div
+      v-else-if="hasHeaderSlot.header || title || hasHeaderSlot['header-extra']"
       :class="cn(
         'flex items-center gap-2',
         headerPaddingClass,

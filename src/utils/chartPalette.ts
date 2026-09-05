@@ -64,7 +64,3 @@ export const ACCESSIBLE_LINE_TYPES = ['solid', 'dashed', 'dotted'] as const
 export function getLoadChartPalette(accessible: boolean): LoadChartPalette {
   return accessible ? ACCESSIBLE_LOAD_CHART_PALETTE : DEFAULT_LOAD_CHART_PALETTE
 }
-
-export function getChartSeriesPalette(accessible: boolean): string[] {
-  return [...(accessible ? ACCESSIBLE_SERIES_PALETTE : DEFAULT_SERIES_PALETTE)]
-}

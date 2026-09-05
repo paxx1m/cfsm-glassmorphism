@@ -2,17 +2,16 @@
 import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { CardX } from '@/components/ui/card-x'
-import { DataTooltip } from '@/components/ui/data-tooltip'
+import NodeCardHeader from '@/components/NodeCardHeader.vue'
 import { ProgressThin } from '@/components/ui/progress-thin'
 import { useNodePingDisplay } from '@/composables/useNodePingDisplay'
 import { useAppStore } from '@/stores/app'
 import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatDurationAdaptive, getStatus } from '@/utils/helper'
 import { getDiskPercentage, getMemoryPercentage, getTrafficLimitBytes, getTrafficUsed, getTrafficUsedPercentage, hasTrafficLimit } from '@/utils/nodeMetricsHelper'
-import { getOSImage, getOSName } from '@/utils/osImageHelper'
-import { getFlagUrl, getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
-import { formatBillingPrice, formatCurrencyValue, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice, parseTags } from '@/utils/tagHelper'
+import { formatBillingPrice, formatCurrencyValue, getDaysUntilExpired, getExpireStatus, getRemainingValue, isFreePrice, normalizePrice, parseTags } from '@/utils/tagHelper'
 
 const props = withDefaults(defineProps<{
   node: NodeData
@@ -27,6 +26,7 @@ const emit = defineEmits<{
   pingClick: []
 }>()
 const appStore = useAppStore()
+const { t } = useI18n()
 const isFavorite = computed(() => appStore.isFavoriteNode(props.node.id))
 
 function toggleFavorite(): void {
@@ -77,7 +77,7 @@ const memStatus = computed(() => getStatus(memPercentage.value))
 const swapTooltip = computed(() => {
   const used = formatBytes(Math.max(0, props.node.swap_used ?? 0))
   const total = Math.max(0, props.node.swap_total ?? 0)
-  return total > 0 ? `Swap 已用 ${used} / 总计 ${formatBytes(total)}` : `Swap 已用 ${used}`
+  return total > 0 ? t('nodeCard.swapUsed', { used, total: formatBytes(total) }) : t('nodeCard.swapUsedOnly', { used })
 })
 const diskPercentage = computed(() => getDiskPercentage(props.node))
 const diskStatus = computed(() => getStatus(diskPercentage.value))
@@ -95,72 +95,62 @@ const trafficUsedPercentage = computed(() => getTrafficUsedPercentage(props.node
 const trafficUsed = computed(() => getTrafficUsed(props.node))
 const trafficLimitBytes = computed(() => getTrafficLimitBytes(props.node))
 const hasLimit = computed(() => hasTrafficLimit(props.node))
-const nodeMessage = computed(() => props.node.message?.trim() ?? '')
-const nodeMessageTooltip = computed(() => {
-  const message = nodeMessage.value
-  if (!message)
-    return ''
-  return message
-})
-
 const uptimeDaysText = computed(() => {
   const text = formatDurationAdaptive(props.node.uptime, appStore.lang)
-  return appStore.lang === 'zh-CN' ? `在线 ${text}` : `${text} online`
+  return t('common.onlineDays', { days: text })
 })
 
 // 是否显示金额：未登录且开启「未登录隐藏价格」时不显示价格 / 剩余价值
 const showPriceValue = computed(() => appStore.showPrice && (appStore.isPublic || !appStore.hidePriceWhenLoggedOut))
 
 const priceText = computed(() => {
-  const node = props.node
-  if (isFreePrice(node.price) || !showPriceValue.value)
+  if (!showPriceValue.value)
     return ''
-  return formatBillingPrice(node, appStore.lang)
+  return formatBillingPrice(props.node, appStore.lang)
 })
 
-// 第三列：剩余天数 + 剩余价值
+// 第三列：剩余天数（遵守 show_expire）+ 剩余价值（遵守 show_price），免费显示"免费"
 const remainingInfoTags = computed<RemainingInfoTag[]>(() => {
   const node = props.node
-  if (isFreePrice(node.price))
-    return []
   const lang = appStore.lang
+  const items: RemainingInfoTag[] = []
   const days = getDaysUntilExpired(node.expire_date)
   const status = getExpireStatus(node.expire_date)
-  const items: RemainingInfoTag[] = []
   const expiryClass = status === 'expired' || status === 'critical'
     ? 'text-destructive'
     : status === 'warning' ? 'text-warning' : 'text-muted-foreground'
 
-  if (status === 'unknown') {
-    items.push({ icon: 'tabler:calendar-stats', text: '-', className: expiryClass })
-  }
-  else if (status === 'expired') {
-    items.push({ icon: 'tabler:calendar-stats', text: lang === 'zh-CN' ? '已过期' : 'Expired', className: expiryClass })
-  }
-  else if (status === 'long_term') {
-    items.push({ icon: 'tabler:calendar-stats', text: lang === 'zh-CN' ? '长期' : 'Long-term', className: expiryClass })
-  }
-  else if (lang === 'zh-CN') {
-    items.push({ icon: 'tabler:calendar-stats', prefix: '剩余', value: String(days ?? 0), unit: '天', className: expiryClass })
-  }
-  else {
-    items.push({ icon: 'tabler:calendar-stats', prefix: 'left', value: String(days ?? 0), unit: 'days', className: expiryClass })
+  if (appStore.showExpire) {
+    if (status === 'unknown') {
+      items.push({ icon: 'tabler:calendar-stats', text: '-', className: expiryClass })
+    }
+    else if (status === 'expired') {
+      items.push({ icon: 'tabler:calendar-stats', text: t('common.expired'), className: expiryClass })
+    }
+    else if (status === 'long_term') {
+      items.push({ icon: 'tabler:calendar-stats', text: t('common.longTerm'), className: expiryClass })
+    }
+    else if (lang === 'zh-CN') {
+      items.push({ icon: 'tabler:calendar-stats', prefix: t('common.remainingPrefix'), value: String(days ?? 0), unit: t('common.dayUnit'), className: expiryClass })
+    }
+    else {
+      items.push({ icon: 'tabler:calendar-stats', prefix: t('common.leftPrefix'), value: String(days ?? 0), unit: t('common.daysUnit'), className: expiryClass })
+    }
   }
 
   if (showPriceValue.value) {
-    const text = isFreePrice(node.price)
-      ? lang === 'zh-CN' ? '免费' : 'Free'
-      : formatCurrencyValue(getRemainingValue(node.price, node.billing_cycle, node.expire_date), node.currency)
-    items.push({ icon: 'tabler:coins', text })
+    const text = !normalizePrice(node.price)
+      ? ''
+      : isFreePrice(node.price)
+        ? t('common.free')
+        : formatCurrencyValue(getRemainingValue(node.price, node.billing_cycle, node.expire_date, node.currency), node.currency)
+    if (text)
+      items.push({ icon: 'tabler:coins', text })
   }
   return items
 })
 
 const customTags = computed(() => parseTags(props.node.tags).map(t => t.text))
-
-function getRegionAltText(region: string): string {
-  return getRegionDisplayName(region, appStore.lang) || getRegionCode(region)
-}
 
 const trafficStatus = computed(() => {
   if (!hasLimit.value)
@@ -192,64 +182,26 @@ const trafficPercentageClass = computed(() => {
     hoverable
     :size="nodeCardXSize"
     :content-class="nodeCardContentPaddingClass"
-    class="node-card glass-surface h-full w-full cursor-pointer border-none shadow-[0_0_0_3px] shadow-transparent transition-all duration-200 rounded-xl"
+    class="node-card glass-surface h-full w-full cursor-pointer border-none shadow-[0_0_0_3px] shadow-transparent transition-shadow duration-200 rounded-xl"
     :class="[!props.node.online && '!shadow-destructive/30']"
     role="button"
     tabindex="0"
-    :aria-label="`查看节点 ${props.node.name} 详情`"
+    :aria-label="t('nodeCard.viewNode', { name: props.node.name })"
     @click="emit('click')"
     @keydown="handleKeyboardOpen"
   >
-    <!-- 头部：在线点 + 名称 + 节点消息 -->
-    <template #header>
-      <div class="flex items-center gap-2 min-w-0">
-        <div class="relative size-2.5 shrink-0">
-          <span
-            class="size-2.5 rounded-full block"
-            :class="props.node.online ? 'bg-success' : 'bg-destructive'"
-          />
-          <span
-            v-if="!props.reduceMotion"
-            class="animate-ping absolute inset-0 rounded-full opacity-60"
-            :class="props.node.online ? 'bg-success' : 'bg-destructive'"
-          />
-        </div>
-        <span class="text-sm font-bold flex-1 min-w-0 truncate">{{ props.node.name }}</span>
-        <DataTooltip
-          v-if="nodeMessage"
-          :content="nodeMessageTooltip"
-          placement="top"
-          as="span"
-          class="inline-flex shrink-0 text-amber-500"
-          content-class="w-56 whitespace-pre-line leading-snug text-left"
-        >
-          <Icon icon="tabler:alert-triangle-filled" width="14" height="14" aria-label="节点消息" />
-        </DataTooltip>
-      </div>
-    </template>
-
-    <!-- 头部右侧：收藏 + OS + 旗帜 -->
-    <template #header-extra>
-      <div class="flex gap-1.5 items-center shrink-0">
-        <button
-          type="button"
-          class="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-slate-500/10 hover:text-amber-500"
-          :class="isFavorite && 'text-amber-500'"
-          :aria-label="isFavorite ? `取消收藏 ${props.node.name}` : `收藏 ${props.node.name}`"
-          :title="isFavorite ? '取消收藏' : '收藏节点'"
-          @click.stop="toggleFavorite"
-          @keydown.stop
-        >
-          <Icon :icon="isFavorite ? 'tabler:star-filled' : 'tabler:star'" width="14" height="14" />
-        </button>
-        <img :src="getOSImage(props.node.os)" :alt="getOSName(props.node.os)" class="size-4">
-        <img
-          v-if="props.node.region"
-          :src="getFlagUrl(props.node.region)"
-          :alt="getRegionAltText(props.node.region)"
-          class="size-5 shrink-0"
-        >
-      </div>
+    <!-- 头部：整行交给 NodeCardHeader 子组件（props 不变即跳过重渲染） -->
+    <template #header-full>
+      <NodeCardHeader
+        :name="props.node.name"
+        :online="props.node.online"
+        :message="props.node.message"
+        :favorited="isFavorite"
+        :os="props.node.os"
+        :region="props.node.region"
+        :reduce-motion="props.reduceMotion"
+        @toggle-favorite="toggleFavorite"
+      />
     </template>
 
     <template #default>
@@ -282,7 +234,7 @@ const trafficPercentageClass = computed(() => {
 
             <div class="flex flex-col gap-1" :title="swapTooltip">
               <div class="flex justify-between text-xs">
-                <span class="inline-flex items-center text-emerald-500" role="img" title="内存" aria-label="内存">
+                <span class="inline-flex items-center text-emerald-500" role="img" :title="t('nodeCard.memory')" :aria-label="t('nodeCard.memory')">
                   <Icon :icon="NODE_METRIC_ICONS.memory" data-node-metric-icon="memory" width="12" height="12" aria-hidden="true" />
                 </span>
                 <span class="tabular-nums font-medium">{{ memPercentage.toFixed(1) }}%</span>
@@ -299,7 +251,7 @@ const trafficPercentageClass = computed(() => {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.traffic" data-node-metric-icon="traffic" width="12" height="12" class="shrink-0 text-violet-500" aria-hidden="true" />
-                <span class="truncate">流量</span>
+                <span class="truncate">{{ t('nodeCard.traffic') }}</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
                 {{ hasLimit ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
@@ -338,7 +290,7 @@ const trafficPercentageClass = computed(() => {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.memory" data-node-metric-icon="memory" width="13" height="13" class="shrink-0 text-emerald-500" aria-hidden="true" />
-                <span class="truncate">内存</span>
+                <span class="truncate">{{ t('nodeCard.memory') }}</span>
               </span>
               <span class="tabular-nums font-medium">{{ memPercentage.toFixed(1) }}%</span>
             </div>
@@ -352,7 +304,7 @@ const trafficPercentageClass = computed(() => {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.disk" data-node-metric-icon="disk" width="13" height="13" class="shrink-0 text-orange-500" aria-hidden="true" />
-                <span class="truncate">硬盘</span>
+                <span class="truncate">{{ t('nodeCard.disk') }}</span>
               </span>
               <span class="tabular-nums font-medium">{{ diskPercentage.toFixed(1) }}%</span>
             </div>
@@ -366,7 +318,7 @@ const trafficPercentageClass = computed(() => {
             <div class="flex justify-between text-xs">
               <span class="inline-flex min-w-0 items-center gap-1 text-muted-foreground">
                 <Icon :icon="NODE_METRIC_ICONS.traffic" data-node-metric-icon="traffic" width="13" height="13" class="shrink-0 text-violet-500" aria-hidden="true" />
-                <span class="truncate">流量</span>
+                <span class="truncate">{{ t('nodeCard.traffic') }}</span>
               </span>
               <span class="tabular-nums font-medium" :class="trafficPercentageClass">
                 {{ hasLimit ? `${trafficUsedPercentage.toFixed(1)}%` : '∞' }}
@@ -443,27 +395,25 @@ const trafficPercentageClass = computed(() => {
             class="group/panel relative flex flex-col rounded-lg bg-slate-500/5"
             :class="[nodeCardPingPanelClass, nodeCardPanelClass, !props.node.online ? 'blur-xs opacity-50' : '']"
             :title="latencyPanelTooltip"
-            :aria-label="`${props.node.name} 延迟`"
+            :aria-label="`${props.node.name} ${t('nodeCard.latency')}`"
             @click.stop="emit('pingClick')"
           >
             <div class="flex items-center justify-between text-[11px] leading-none">
-              <span class="text-muted-foreground">延迟</span>
+              <span class="text-muted-foreground">{{ t('nodeCard.latency') }}</span>
               <span class="font-medium">{{ latencyDisplay }}</span>
             </div>
             <div
               data-node-ping-bars="latency"
-              class="grid min-h-0 min-w-0 w-full flex-1 items-end gap-[1px] opacity-80 group-hover/panel:opacity-100"
-              :style="{ gridTemplateColumns: `repeat(${Math.max(latencyRenderBars.length, 1)}, minmax(0, 1fr))` }"
+              class="grid min-h-0 min-w-0 w-full flex-1 items-end justify-start gap-[1px] opacity-80 group-hover/panel:opacity-100"
+              :style="{ gridTemplateColumns: `repeat(${Math.max(latencyRenderBars.length, 1)}, 7px)` }"
             >
-              <DataTooltip
+              <span
                 v-for="bar in latencyRenderBars" :key="bar.key"
-                placement="top" :content="bar.tooltip" class="h-full w-full"
-              >
-                <span
-                  class="block h-full w-full rounded-[1px] transition-transform duration-150 group-hover/data-tooltip:scale-y-160 group-hover/panel:opacity-60 group-hover/data-tooltip:!opacity-100"
-                  :class="bar.className"
-                />
-              </DataTooltip>
+                class="block h-full w-full rounded-[1px] transition-transform duration-150 group-hover/panel:scale-y-160 group-hover/panel:opacity-80"
+                :class="bar.className"
+                :title="bar.tooltip"
+                :aria-label="bar.tooltip"
+              />
             </div>
           </button>
 
@@ -472,27 +422,25 @@ const trafficPercentageClass = computed(() => {
             class="group/panel relative flex flex-col rounded-lg bg-slate-500/5"
             :class="[nodeCardPingPanelClass, nodeCardPanelClass, !props.node.online ? 'blur-xs opacity-50' : '']"
             :title="lossPanelTooltip"
-            :aria-label="`${props.node.name} 丢包`"
+            :aria-label="`${props.node.name} ${t('nodeCard.packetLoss')}`"
             @click.stop="emit('pingClick')"
           >
             <div class="flex items-center justify-between text-[11px] leading-none">
-              <span class="text-muted-foreground">丢包</span>
+              <span class="text-muted-foreground">{{ t('nodeCard.packetLoss') }}</span>
               <span class="font-medium">{{ lossDisplay }}</span>
             </div>
             <div
               data-node-ping-bars="loss"
-              class="grid min-h-0 min-w-0 w-full flex-1 items-end gap-[1px] opacity-80 group-hover/panel:opacity-100"
-              :style="{ gridTemplateColumns: `repeat(${Math.max(lossRenderBars.length, 1)}, minmax(0, 1fr))` }"
+              class="grid min-h-0 min-w-0 w-full flex-1 items-end justify-start gap-[1px] opacity-80 group-hover/panel:opacity-100"
+              :style="{ gridTemplateColumns: `repeat(${Math.max(lossRenderBars.length, 1)}, 7px)` }"
             >
-              <DataTooltip
+              <span
                 v-for="bar in lossRenderBars" :key="bar.key"
-                placement="top" :content="bar.tooltip" class="h-full w-full"
-              >
-                <span
-                  class="block h-full w-full rounded-[1px] transition-transform duration-150 group-hover/data-tooltip:scale-y-160 group-hover/panel:opacity-60 group-hover/data-tooltip:!opacity-100"
-                  :class="bar.className"
-                />
-              </DataTooltip>
+                class="block h-full w-full rounded-[1px] transition-transform duration-150 group-hover/panel:scale-y-160 group-hover/panel:opacity-80"
+                :class="bar.className"
+                :title="bar.tooltip"
+                :aria-label="bar.tooltip"
+              />
             </div>
           </button>
         </div>
@@ -514,7 +462,7 @@ const trafficPercentageClass = computed(() => {
           class="absolute inset-0 flex flex-col items-center justify-center z-10 rounded-xl bg-white/20 dark:bg-black/20 backdrop-blur-[2px]"
         >
           <div class="text-sm font-semibold text-destructive">
-            离线
+            {{ t('nodeCard.offline') }}
           </div>
           <div class="text-[11px] text-muted-foreground mt-1">
             {{ offlineTime }}

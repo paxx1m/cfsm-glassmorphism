@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NodeData } from '@/stores/nodes'
+import { useI18n } from 'vue-i18n'
 import { useNodePingDisplay } from '@/composables/useNodePingDisplay'
 
 const props = defineProps<{
@@ -9,6 +10,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   click: []
 }>()
+
+const { t } = useI18n()
 
 const {
   latencyRenderBars,
@@ -20,7 +23,7 @@ const {
   <button
     type="button"
     class="group flex w-full flex-col gap-[1px] pr-4 text-left"
-    aria-label="打开延迟和丢包监测"
+    :aria-label="t('pingCell.aria')"
     @click.stop="emit('click')"
   >
     <div class="group/panel relative items-center gap-1 opacity-80 hover:opacity-100">

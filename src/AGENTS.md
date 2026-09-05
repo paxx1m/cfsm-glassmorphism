@@ -61,20 +61,15 @@ Export rules:
 
 ## Services and request/cache rules
 
-- Use `services/auth.service.ts` for verified auth/session state.
-- Use `services/request.service.ts` for keyed request dedupe, concurrency, timeout, retry, and abort.
-- Use `services/cache.service.ts` for shared cache lifecycle and promise dedupe.
-- Use `services/history.service.ts` for load/ping history.
-- Use `services/prediction.service.ts` for disk prediction.
-- Use `services/provider.service.ts` for provider/geo metadata rules.
-- Use `services/snapshot.service.ts` for export composition/download boundary.
+- `services/cfsm.service.ts` owns REST + WebSocket transport (auth headers, apiBase, error mapping).
+- `services/history.service.ts` handles load/ping history with keyed single-flight dedupe.
+- `services/themeSettingsStore.ts` persists local theme settings; remote theme options go through `saveThemeOptions`.
 
-Cache/request keys must include every dimension that changes the result, especially:
+History request keys must include every dimension that changes the result, especially:
 
 - record type
 - node UUID
 - time range / hours
-- `maxCount`
 - public metadata-only vs private geo-enriched mode
 
 ## UI rules

@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import type { HistoryRow } from '@/services/cfsm.service'
 import dayjs from 'dayjs'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import VChart from 'vue-echarts'
 import { Button } from '@/components/ui/button'
 import { CardX } from '@/components/ui/card-x'
 import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
 import { useThemeVars } from '@/composables/useThemeVars'
 import { loadServerHistory } from '@/services/history.service'
+import { PING_CARRIERS } from '@/constants/ping'
 import '@/utils/echarts'
 
 const props = defineProps<{
@@ -23,27 +26,25 @@ const props = defineProps<{
 }>()
 
 const themeVars = useThemeVars()
+const { t } = useI18n()
 
 function formatTimeFromTs(ts: number): string {
   return dayjs(ts).format('HH:mm')
 }
 
-// 探测线路：电信 / 联通 / 移动（CF-Server-Monitor 为三网，无 BGP 线路）
-const CARRIERS = [
-  { key: 'ct', label: '电信', color: '#4da6ff' },
-  { key: 'cu', label: '联通', color: '#00d4aa' },
-  { key: 'cm', label: '移动', color: '#f778ba' },
-] as const
+// 探测线路：电信 / 联通 / 移动（颜色等统一定义在 constants/ping.ts）
+const CARRIERS = PING_CARRIERS
 type CarrierKey = typeof CARRIERS[number]['key']
+const carrierLabel = (key: CarrierKey) => t(CARRIERS.find(c => c.key === key)!.labelKey)
 
 const history = ref<HistoryRow[]>([])
 const loading = ref(true)
 
 // 视图选项
-const lossBand = ref(false) // 丢包色带
-const smoothing = ref(false) // 削峰平滑
-const connectNulls = ref(false) // 断点连线
-const hiddenAll = ref(false) // 隐藏全部
+const lossBand = ref(false) // {{ t('pingChart.lossBand') }}
+const smoothing = ref(false) // {{ t('pingChart.smoothing') }}
+const connectNulls = ref(false) // {{ t('pingChart.connectNulls') }}
+const hiddenAll = ref(false) // {{ t('pingChart.hideAll') }}
 
 const rows = computed(() => history.value)
 
@@ -119,7 +120,7 @@ const chartOption = computed(() => {
 
   if (lossBand.value) {
     series.push({
-      name: '丢包率',
+      name: t('pingChart.lossRate'),
       type: 'line',
       yAxisIndex: 1,
       data: lossSeries.value,
@@ -134,13 +135,13 @@ const chartOption = computed(() => {
     const { carrier, values } = seriesData.value[i] as { carrier: typeof CARRIERS[number], values: Array<number | null> }
     if (hiddenAll.value) {
       series.push({
-        name: carrier.label,
+        name: carrierLabel(carrier.key),
         type: 'line', data: [], showSymbol: false, lineStyle: { width: 1.5, color: carrier.color }, legendHoverLink: false,
       })
       continue
     }
     series.push({
-      name: carrier.label,
+      name: carrierLabel(carrier.key),
       type: 'line',
       data: values,
       showSymbol: false,
@@ -154,7 +155,7 @@ const chartOption = computed(() => {
     animation: false,
     tooltip: baseTooltip.value,
     legend: hiddenAll.value ? { show: false } : {
-      data: CARRIERS.map(c => c.label), bottom: 4, itemWidth: 10, itemHeight: 8, icon: 'roundRect',
+      data: CARRIERS.map(c => carrierLabel(c.key)), bottom: 4, itemWidth: 10, itemHeight: 8, icon: 'roundRect',
       textStyle: { fontSize: 10, color: themeVars.value.textColor3 },
     },
     grid: { top: 16, right: 16, bottom: 46, left: 44 },
@@ -182,15 +183,15 @@ async function load(): Promise<void> {
 }
 
 // 实时档位由详情页统一驱动 refreshNonce 触发刷新；各图表共用同一信号并借 single-flight 合并并发请求
+// immediate 已覆盖首次加载，不再额外挂 onMounted 双触发
 watch(() => props.uuid, () => { void load() }, { immediate: true })
 watch(() => props.hours, () => { void load() })
 watch(() => props.refreshNonce, () => {
   if (props.realtime)
     void load()
 })
-onMounted(() => { void load() })
 
-const subtitle = computed(() => props.realtime ? '最近 10 分钟' : `覆盖 ${props.rangeLabel || '所选范围'}`)
+const subtitle = computed(() => props.realtime ? t('pingChart.realtimeSubtitle') : t('pingChart.rangeSubtitle', { range: props.rangeLabel || '' }))
 </script>
 
 <template>
@@ -202,35 +203,35 @@ const subtitle = computed(() => props.realtime ? '最近 10 分钟' : `覆盖 ${
       <div class="flex min-w-0 flex-1 flex-col gap-1.5">
         <div class="flex min-w-0 items-center justify-between gap-3">
           <div>
-            <div class="text-sm font-semibold">Ping 图表</div>
+            <div class="text-sm font-semibold">{{ t('pingChart.title') }}</div>
             <div class="text-[10px] leading-4 text-muted-foreground">
               {{ subtitle }}
             </div>
           </div>
           <div class="flex items-center gap-1.5">
             <Button v-if="!hiddenAll" size="xs" variant="outline" @click="hiddenAll = true">
-              隐藏全部
+              {{ t('pingChart.hideAll') }}
             </Button>
             <Button v-else size="xs" variant="outline" @click="hiddenAll = false">
-              显示全部
+              {{ t('pingChart.showAll') }}
             </Button>
             <Button size="xs" variant="outline" @click="load">
-              刷新
+              {{ t('pingChart.refresh') }}
             </Button>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          <label class="inline-flex cursor-pointer items-center gap-1">
-            <input v-model="lossBand" type="checkbox" class="h-3.5 w-3.5 accent-red-500">
-            丢包色带
+          <label class="inline-flex cursor-pointer items-center gap-1.5">
+            <Switch v-model="lossBand" :aria-label="t('pingChart.lossBand')" />
+            {{ t('pingChart.lossBand') }}
           </label>
-          <label class="inline-flex cursor-pointer items-center gap-1">
-            <input v-model="smoothing" type="checkbox" class="h-3.5 w-3.5 accent-emerald-500">
-            削峰平滑
+          <label class="inline-flex cursor-pointer items-center gap-1.5">
+            <Switch v-model="smoothing" :aria-label="t('pingChart.smoothing')" />
+            {{ t('pingChart.smoothing') }}
           </label>
-          <label class="inline-flex cursor-pointer items-center gap-1">
-            <input v-model="connectNulls" type="checkbox" class="h-3.5 w-3.5 accent-sky-500">
-            断点连线
+          <label class="inline-flex cursor-pointer items-center gap-1.5">
+            <Switch v-model="connectNulls" :aria-label="t('pingChart.connectNulls')" />
+            {{ t('pingChart.connectNulls') }}
           </label>
         </div>
       </div>
@@ -240,10 +241,10 @@ const subtitle = computed(() => props.realtime ? '最近 10 分钟' : `覆盖 ${
       <div class="relative h-52">
         <VChart v-if="history.length" :option="chartOption" autoresize class="h-full w-full" />
         <div v-else class="flex h-full items-center justify-center text-xs text-muted-foreground">
-          暂无 Ping 数据
+          {{ t('pingChart.noData') }}
         </div>
         <div v-if="hiddenAll && history.length" class="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/40 text-xs text-muted-foreground backdrop-blur-[1px]">
-          已隐藏
+          {{ t('pingChart.hidden') }}
         </div>
       </div>
     </Spinner>
@@ -256,7 +257,7 @@ const subtitle = computed(() => props.realtime ? '最近 10 分钟' : `覆盖 ${
       >
         <span class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span class="inline-block size-2 rounded-full" :style="{ backgroundColor: item.carrier.color }" />
-          {{ item.carrier.label }}
+          {{ carrierLabel(item.carrier.key) }}
         </span>
         <span class="text-right text-[11px] tabular-nums">
           <span class="font-medium text-foreground">{{ item.ping === null ? '-' : `${item.ping.toFixed(1)} ms` }}</span>

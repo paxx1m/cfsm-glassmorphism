@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AppDialog } from '@/components/ui/app-dialog'
@@ -14,6 +15,7 @@ import Header from './components/Header.vue'
 
 const appStore = useAppStore()
 const route = useRoute()
+const { t } = useI18n()
 
 const isReady = ref(false)
 const isRetryingConnection = ref(false)
@@ -32,13 +34,13 @@ async function retryConnection(): Promise<void> {
   try {
     const recovered = await retryInitApp()
     if (recovered)
-      window.$message?.success('连接已恢复。')
+      window.$message?.success(t('app.connected'))
     else
-      window.$message?.error('仍无法连接服务器，请稍后再试。')
+      window.$message?.error(t('app.stillCannotConnect'))
   }
   catch (error) {
     console.error('[App] Connection retry failed:', error)
-    window.$message?.error('重试失败，请稍后再试。')
+    window.$message?.error(t('app.retryFailed'))
   }
   finally {
     isRetryingConnection.value = false
@@ -83,12 +85,12 @@ onUnmounted(() => {
             <!-- 私有站点需登录 -->
             <Alert v-if="appStore.loginRequired" variant="destructive" class="!pr-28 border-none bg-destructive/10 backdrop-blur-xs rounded-md">
               <Icon icon="tabler:lock" />
-              <AlertTitle>需要登录</AlertTitle>
-              <AlertDescription>该站点未公开，请登录后访问监控面板。</AlertDescription>
+              <AlertTitle>{{ t('app.loginTitle') }}</AlertTitle>
+              <AlertDescription>{{ t('app.loginDesc') }}</AlertDescription>
               <AlertAction class="top-1/2 -translate-y-1/2">
                 <Button size="sm" variant="outline" @click="goToAdmin">
                   <Icon icon="tabler:lock-open" />
-                  前往管理后台登录
+                  {{ t('app.goAdmin') }}
                 </Button>
               </AlertAction>
             </Alert>
@@ -96,12 +98,12 @@ onUnmounted(() => {
             <!-- 连接错误 -->
             <Alert v-else-if="appStore.connectionError" variant="destructive" class="!pr-28 border-none bg-destructive/10 backdrop-blur-xs rounded-md">
               <Icon icon="tabler:plug-connected-x" />
-              <AlertTitle>服务连接错误</AlertTitle>
-              <AlertDescription>连接服务器失败，请检查网络后重试。</AlertDescription>
+              <AlertTitle>{{ t('app.connErrorTitle') }}</AlertTitle>
+              <AlertDescription>{{ t('app.connErrorDesc') }}</AlertDescription>
               <AlertAction class="top-1/2 -translate-y-1/2">
                 <Button size="sm" variant="outline" :disabled="isRetryingConnection" @click="retryConnection">
                   <Icon :icon="isRetryingConnection ? 'tabler:loader-2' : 'tabler:refresh'" :class="isRetryingConnection && 'animate-spin'" />
-                  {{ isRetryingConnection ? '重试中' : '重试' }}
+                  {{ isRetryingConnection ? t('app.retrying') : t('app.retry') }}
                 </Button>
               </AlertAction>
             </Alert>
@@ -129,21 +131,21 @@ onUnmounted(() => {
     </Transition>
     <Toaster rich-colors close-button position="top-center" />
     <AppDialog
-      :open="wsTimeoutOpen" title="实时连接超时"
-      description="连续实时连接已达管理员设置的时间上限。"
+      :open="wsTimeoutOpen" :title="t('app.wsTimeoutTitle')"
+      :description="t('app.wsTimeoutDesc')"
       content-class="!max-w-md"
       @update:open="(open) => { if (!open) respondToWsTimeout(false) }"
     >
       <div class="flex flex-col gap-3">
         <p class="text-xs leading-relaxed text-muted-foreground">
-          是否继续保持实时连接？「继续连接」将重新建立连接并重新计时；「断开连接」则暂停实时推送，仅保留低频轮询更新，且不会自动重连。
+          {{ t('app.wsTimeoutBody') }}
         </p>
         <div class="flex justify-end gap-2">
           <Button size="sm" variant="outline" @click="respondToWsTimeout(false)">
-            断开连接
+            {{ t('app.disconnect') }}
           </Button>
           <Button size="sm" variant="default" @click="respondToWsTimeout(true)">
-            继续连接
+            {{ t('app.keepConnection') }}
           </Button>
         </div>
       </div>
